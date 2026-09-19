@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Ботаника: Исследование с фонариком</title>
+    <style>
+        :root {
+            --bg-dark: #0a0a1a;
+            --bg-panel: #1a1a2e;
+            --neon-cyan: #00d4ff;
+            --neon-glow: rgba(0, 212, 255, 0.6);
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0b0;
+            --success: #00ff88;
+            --error: #ff4757;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        .glass {
+            background: rgba(26, 26, 46, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+        }
+
+        .neon-text {
+            color: var(--neon-cyan);
+            text-shadow: 0 0 10px var(--neon-glow), 0 0 20px var(--neon-glow);
+        }
+
+        /* ===== INTRO SCREEN ===== */
+        #intro {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+        }
+
+        .intro-viewport {
+            width: 100%;
+            max-width: 380px;
+            aspect-ratio: 9/16;
+            position: relative;
+            border-radius: 20px;
+            overflow: hidden;
+            border: 2px solid rgba(0, 212, 255, 0.3);
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.2);
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+            padding-bottom: 3rem;
+        }
+
+        #bg-video {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+            z-index: 0;
+        }
+
+        .intro-content {
+            text-align: center;
+            z-index: 10;
+            position: relative;
+        }
+
+        .intro-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            letter-spacing: 2px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .intro-subtitle {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+        }
+
+        .sound-toggle {
+            position: absolute;
+            top: 1rem; right: 1rem;
+            width: 45px; height: 45px;
+            border-radius: 50%;
+            background: rgba(26, 26, 46, 0.7);
+            backdrop-filter: blur(12px);
+            border: 2px solid var(--neon-cyan);
+            color: var(--neon-cyan);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1.3rem;
+            transition: all 0.3s ease;
+            z-index: 20;
+        }
+
+        .sound-toggle:active { transform: scale(0.95); }
+
+        .start-btn {
+            padding: 1rem 2.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--neon-cyan);
+            background: transparent;
+            border: 2px solid var(--neon-cyan);
+            border-radius: 50px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            animation: morphBorder 3s ease-in-out infinite, pulseGlow 2s ease-in-out infinite;
+        }
+
+        .start-btn::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .start-btn:hover::before { left: 100%; }
+        .start-btn:active { transform: scale(0.98); }
+
+        /* ===== GAME SCREEN ===== */
+        #game {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: var(--bg-dark);
+            display: flex;
+            flex-direction: column;
+            z-index: 50;
+        }
+
+        .game-header {
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            z-index: 20;
+        }
+
+        .game-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .progress-container {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--neon-cyan), #00ff88);
+            width: 0%;
+            transition: width 0.5s ease;
+            box-shadow: 0 0 10px var(--neon-glow);
+        }
+
+        .game-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+            position: relative;
+        }
+
+        .viewport {
+            width: 100%;
+            max-width: 380px;
+            aspect-ratio: 9/16;
+            position: relative;
+            border-radius: 20px;
+            overflow: hidden;
+            border: 2px solid rgba(0, 212, 255, 0.3);
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.2);
+            cursor: crosshair;
+        }
+
+        .layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+        }
+
+        .organs-video {
+            z-index: 1;
+            object-fit: cover;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .body-image {
+            z-index: 2;
+            background-image: url('sunflower.png');
+            background-size: contain;
+            background-position: center;
+            background-repeat: no-repeat;
+            pointer-events: none;
+            -webkit-mask-image: radial-gradient(circle 0px at 50% 50%, transparent 0%, black 100%);
+            mask-image: radial-gradient(circle 0px at 50% 50%, transparent 0%, black 100%);
+        }
+
+        .organ-zone {
+            position: absolute;
+            z-index: 10;
+            cursor: pointer;
+            border-radius: 50%;
+            background: transparent;
+            border: none;
+            pointer-events: auto;
+        }
+
+        /* Зоны клика под ваше изображение */
+        #zone-flower { top: 15%;  left: 25%; width: 50%; height: 35%; }
+        #zone-seeds  { top: 25%;  left: 35%; width: 30%; height: 20%; }
+        #zone-stem   { top: 55%;  left: 43%; width: 14%; height: 15%; }
+        #zone-leaf   { top: 60%;  left: 20%; width: 25%; height: 20%; }
+        #zone-root   { top: 82%;  left: 35%; width: 30%; height: 15%; }
+
+        .quiz-btn-top {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background: var(--neon-cyan);
+            color: var(--bg-dark);
+            border: none;
+            font-size: 1.3rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 0 20px var(--neon-glow);
+            z-index: 30;
+            transition: transform 0.3s;
+        }
+
+        .quiz-btn-top:active { transform: scale(0.95); }
+
+        /* ===== MINI QUIZ MODAL ===== */
+        .mini-quiz-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 200;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .mini-quiz-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .mini-quiz-content {
+            width: 100%;
+            max-width: 380px;
+            background: var(--bg-panel);
+            border-radius: 20px;
+            border: 2px solid var(--neon-cyan);
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.3);
+            padding: 2rem;
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+
+        .mini-quiz-overlay.active .mini-quiz-content {
+            transform: scale(1);
+        }
+
+        .mini-quiz-header {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .mini-quiz-title {
+            font-size: 1.5rem;
+            color: var(--neon-cyan);
+            margin-bottom: 0.5rem;
+        }
+
+        .mini-quiz-progress {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .mini-quiz-question {
+            font-size: 1.2rem;
+            margin-bottom: 1.5rem;
+            line-height: 1.4;
+            text-align: center;
+        }
+
+        .mini-quiz-answers {
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+        }
+
+        .mini-quiz-answer {
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(0, 212, 255, 0.3);
+            color: var(--text-primary);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+            font-size: 0.95rem;
+        }
+
+        .mini-quiz-answer:active:not(.disabled) {
+            transform: scale(0.98);
+            background: rgba(0, 212, 255, 0.2);
+        }
+
+        .mini-quiz-answer.correct {
+            background: rgba(0, 255, 136, 0.3);
+            border-color: var(--success);
+            color: var(--success);
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.4);
+        }
+
+        .mini-quiz-answer.wrong {
+            background: rgba(255, 71, 87, 0.3);
+            border-color: var(--error);
+            color: var(--error);
+            box-shadow: 0 0 15px rgba(255, 71, 87, 0.4);
+        }
+
+        .mini-quiz-answer.disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .mini-quiz-close {
+            width: 100%;
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: transparent;
+            border: 2px solid var(--neon-cyan);
+            color: var(--neon-cyan);
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .mini-quiz-close:active {
+            background: var(--neon-cyan);
+            color: var(--bg-dark);
+        }
+
+        /* ===== ORGAN MODAL (IMAGE VERSION) ===== */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 200;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-content {
+            width: 100%;
+            max-width: 380px;
+            max-height: 95vh;
+            background: var(--bg-panel);
+            border-radius: 20px;
+            border: 2px solid var(--neon-cyan);
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.3);
+            overflow: hidden;
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-overlay.active .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-image-container {
+            width: 100%;
+            aspect-ratio: 1/1;
+            max-height: 50vh;
+            background: #000;
+            flex-shrink: 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .modal-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .modal-body { 
+            padding: 1.5rem;
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            color: var(--neon-cyan);
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .modal-fact {
+            color: var(--text-primary);
+            line-height: 1.6;
+            font-size: 0.95rem;
+            margin: 0;
+            flex: 1;
+            padding: 1rem;
+            background: rgba(0, 212, 255, 0.05);
+            border-radius: 10px;
+            border-left: 3px solid var(--neon-cyan);
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: auto;
+        }
+
+        .modal-btn {
+            flex: 1;
+            padding: 0.8rem;
+            background: transparent;
+            border: 2px solid var(--neon-cyan);
+            color: var(--neon-cyan);
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .modal-btn:active {
+            background: var(--neon-cyan);
+            color: var(--bg-dark);
+        }
+
+        .modal-btn.primary {
+            background: var(--neon-cyan);
+            color: var(--bg-dark);
+        }
+
+        .modal-btn.primary:active {
+            background: transparent;
+            color: var(--neon-cyan);
+        }
+
+        /* ===== FULL QUIZ SCREEN ===== */
+        #quiz {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: var(--bg-dark);
+            z-index: 150;
+            display: flex;
+            flex-direction: column;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+
+        .quiz-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .quiz-title {
+            font-size: 1.8rem;
+            color: var(--neon-cyan);
+            margin-bottom: 0.5rem;
+        }
+
+        .quiz-progress {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .question-card {
+            background: var(--bg-panel);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            animation: slideUp 0.5s ease;
+        }
+
+        .question-text {
+            font-size: 1.2rem;
+            margin-bottom: 1.5rem;
+            line-height: 1.4;
+            font-weight: 500;
+        }
+
+        .answers {
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+        }
+
+        .answer-btn {
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(0, 212, 255, 0.3);
+            color: var(--text-primary);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: left;
+            font-size: 0.95rem;
+        }
+
+        .answer-btn:active:not(.disabled) {
+            transform: scale(0.98);
+            background: rgba(0, 212, 255, 0.2);
+        }
+
+        .answer-btn.correct {
+            background: rgba(0, 255, 136, 0.2);
+            border-color: var(--success);
+            color: var(--success);
+        }
+
+        .answer-btn.wrong {
+            background: rgba(255, 71, 87, 0.2);
+            border-color: var(--error);
+            color: var(--error);
+        }
+
+        .answer-btn.disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        /* ===== RESULT SCREEN ===== */
+        #result {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: var(--bg-dark);
+            z-index: 160;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .result-icon {
+            font-size: 5rem;
+            margin-bottom: 1rem;
+            animation: bounce 1s ease infinite;
+        }
+
+        .result-title {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            color: var(--neon-cyan);
+        }
+
+        .result-score {
+            font-size: 3rem;
+            font-weight: 700;
+            margin: 1rem 0;
+            text-shadow: 0 0 20px var(--neon-glow);
+        }
+
+        .result-text {
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+
+        .restart-btn {
+            padding: 1rem 2.5rem;
+            background: var(--neon-cyan);
+            color: var(--bg-dark);
+            border: none;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 0 20px var(--neon-glow);
+            transition: transform 0.3s;
+        }
+
+        .restart-btn:active { transform: scale(0.95); }
+
+        /* ===== ANIMATIONS ===== */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 10px var(--neon-glow); }
+            50% { box-shadow: 0 0 25px var(--neon-glow), 0 0 40px var(--neon-glow); }
+        }
+
+        @keyframes morphBorder {
+            0%, 100% { border-radius: 50px; }
+            50% { border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%; }
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        @media (max-width: 480px) {
+            .intro-title { font-size: 1.8rem; }
+            .viewport { max-width: 100%; }
+        }
+
+        ::-webkit-scrollbar { display: none; }
+        * { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body>
+
+    <!-- ===== INTRO SCREEN ===== -->
+    <section id="intro">
+        <div class="intro-viewport">
+            <video id="bg-video" autoplay loop playsinline muted>
+                <source src="bg-video.mp4" type="video/mp4">
+            </video>
+
+            <button class="sound-toggle" id="soundToggle" aria-label="Переключить звук">
+                <span id="soundIcon">🔇</span>
+            </button>
+
+            <div class="intro-content">
+                <h1 class="intro-title neon-text">БОТАНИКА</h1>
+                <p class="intro-subtitle">Исследование подсолнуха с фонариком</p>
+                <button class="start-btn" id="startBtn">Начать исследование</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== GAME SCREEN ===== -->
+    <section id="game" style="display: none;">
+        <div class="game-header glass">
+            <div class="game-title">Исследуйте строение растения</div>
+            <div class="progress-container">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+        </div>
+
+        <div class="game-container">
+            <div class="viewport" id="viewport">
+                <video class="layer organs-video" id="organsVideo" autoplay loop playsinline muted>
+                    <source src="sunflower-ambient.mp4" type="video/mp4">
+                </video>
+
+                <div class="layer body-image" id="bodyLayer"></div>
+
+                <!-- 5 ЗОН КЛИКА -->
+                <div class="organ-zone" id="zone-flower" data-organ="flower"></div>
+                <div class="organ-zone" id="zone-seeds" data-organ="seeds"></div>
+                <div class="organ-zone" id="zone-stem" data-organ="stem"></div>
+                <div class="organ-zone" id="zone-leaf" data-organ="leaf"></div>
+                <div class="organ-zone" id="zone-root" data-organ="root"></div>
+
+                <button class="quiz-btn-top" id="miniQuizBtn">?</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== MINI QUIZ MODAL ===== -->
+    <div class="mini-quiz-overlay" id="miniQuizOverlay">
+        <div class="mini-quiz-content">
+            <div class="mini-quiz-header">
+                <h3 class="mini-quiz-title">Мини-викторина</h3>
+                <div class="mini-quiz-progress" id="miniQuizProgress">Вопрос 1 из 4</div>
+            </div>
+            <div id="miniQuizContainer"></div>
+            <button class="mini-quiz-close" id="closeMiniQuizBtn">Закрыть</button>
+        </div>
+    </div>
+
+    <!-- ===== ORGAN MODAL (IMAGE) ===== -->
+    <div class="modal-overlay" id="organModal">
+        <div class="modal-content">
+            <div class="modal-image-container">
+                <img class="modal-image" id="modalImage" src="" alt="Часть растения">
+            </div>
+            <div class="modal-body">
+                <h3 class="modal-title" id="modalTitle">Часть растения</h3>
+                <p class="modal-fact" id="modalFact">Факт</p>
+                <div class="modal-buttons">
+                    <button class="modal-btn" id="nextFactBtn">🎲 Новый факт</button>
+                    <button class="modal-btn primary" id="closeModalBtn">Закрыть</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== FULL QUIZ SCREEN ===== -->
+    <section id="quiz" style="display: none;">
+        <div class="quiz-header">
+            <h2 class="quiz-title">Проверка знаний</h2>
+            <div class="quiz-progress" id="quizProgress">Вопрос 1 из 4</div>
+        </div>
+        <div id="quizContainer"></div>
+    </section>
+
+    <!-- ===== RESULT SCREEN ===== -->
+    <section id="result" style="display: none;">
+        <div class="result-icon">🌻</div>
+        <h2 class="result-title">Исследование завершено!</h2>
+        <div class="result-score" id="resultScore">2/5</div>
+        <p class="result-text" id="resultText">Отличная работа!</p>
+        <button class="restart-btn" onclick="location.reload()">Начать заново</button>
+    </section>
+
+    <script>
+        const state = {
+            discovered: new Set(),
+            totalOrgans: 5,
+            currentQuestion: 0,
+            score: 0,
+            miniQuizQuestion: 0,
+            miniQuizScore: 0,
+            currentOrgan: null,
+            lastFactIndex: -1
+        };
+
+        const el = {
+            intro:       document.getElementById('intro'),
+            game:        document.getElementById('game'),
+            quiz:        document.getElementById('quiz'),
+            result:      document.getElementById('result'),
+            bgVideo:     document.getElementById('bg-video'),
+            organsVideo: document.getElementById('organsVideo'),
+            soundToggle: document.getElementById('soundToggle'),
+            soundIcon:   document.getElementById('soundIcon'),
+            startBtn:    document.getElementById('startBtn'),
+            viewport:    document.getElementById('viewport'),
+            bodyLayer:   document.getElementById('bodyLayer'),
+            progressBar: document.getElementById('progressBar'),
+            organModal:  document.getElementById('organModal'),
+            modalImage:  document.getElementById('modalImage'),
+            modalTitle:  document.getElementById('modalTitle'),
+            modalFact:   document.getElementById('modalFact'),
+            nextFactBtn: document.getElementById('nextFactBtn'),
+            closeModalBtn: document.getElementById('closeModalBtn'),
+            miniQuizBtn:    document.getElementById('miniQuizBtn'),
+            miniQuizOverlay: document.getElementById('miniQuizOverlay'),
+            miniQuizContainer: document.getElementById('miniQuizContainer'),
+            miniQuizProgress: document.getElementById('miniQuizProgress'),
+            closeMiniQuizBtn: document.getElementById('closeMiniQuizBtn'),
+            quizContainer: document.getElementById('quizContainer'),
+            quizProgress:  document.getElementById('quizProgress'),
+            resultScore:   document.getElementById('resultScore'),
+            resultText:    document.getElementById('resultText')
+        };
+
+        // Данные о частях подсолнуха (PNG ФОТО)
+        const organsData = {
+            flower: {
+                title: '🌻 Соцветие (Корзинка)',
+                image: 'flower.png',
+                facts: [
+                    'То, что мы называем «цветком», на самом деле является соцветием-корзинкой, состоящим из тысяч мелких цветков.',
+                    'Молодые бутоны подсолнуха обладают гелиотропизмом: они поворачиваются вслед за солнцем в течение дня.',
+                    'В одной крупной корзинке может быть до 2000 и более отдельных цветков, которые позже станут семечками.',
+                    'Краевые язычковые цветки (лепестки) бесплодны, их задача — привлекать насекомых-опылителей ярким желтым цветом.',
+                    'После созревания подсолнух перестает поворачиваться за солнцем и обычно фиксируется лицом на восток.',
+                    'Семена в корзинке расположены по спирали, подчиняясь числам Фибоначчи, что обеспечивает максимальную упаковку.',
+                    'Подсолнух является отличным медоносом, привлекая пчел нектаром своих трубчатых цветков.',
+                    'Дикие предки культурного подсолнуха имели гораздо меньшие корзинки, размером всего с монету.',
+                    'Центральные цветки созревают от краев к центру корзинки, обеспечивая постепенное формирование семян.',
+                    'Подсолнух может самоопыляться, но перекрестное опыление насекомыми значительно увеличивает урожайность.'
+                ]
+            },
+            seeds: {
+                title: '🌰 Семечки (Семена)',
+                image: 'seeds.png',
+                facts: [
+                    'Семечки подсолнуха — это плоды-семянки, содержащие одно семя внутри твёрдой оболочки.',
+                    'Одна корзинка подсолнуха может содержать от 1000 до 2000 семечек в зависимости от сорта.',
+                    'Семечки подсолнуха богаты витамином E — мощным антиоксидантом, защищающим клетки от старения.',
+                    'В семечках содержится до 50-60% растительного масла, что делает их ценной масличной культурой.',
+                    'Семечки подсолнуха являются отличным источником магния, который важен для работы сердца и нервной системы.',
+                    'Из семечек подсолнуха получают подсолнечное масло — одно из самых популярных растительных масел в мире.',
+                    'Семечки содержат белок, сравнимый по качеству с мясным, что делает их ценным продуктом для вегетарианцев.',
+                    'Обжаренные семечки приобретают характерный вкус и аромат благодаря реакции Майяра при нагревании.',
+                    'Семечки подсолнуха используются в кондитерской промышленности для производства халвы и козинаков.',
+                    'Дикие виды подсолнуха имели мелкие семечки, но селекционеры вывели сорта с крупными семенами в 3-4 раза.'
+                ]
+            },
+            stem: {
+                title: '🌿 Стебель',
+                image: 'stem.png',
+                facts: [
+                    'Стебель подсолнуха прямой, прочный и может достигать высоты от 1,5 до 3 метров у некоторых сортов.',
+                    'Поверхность стебля покрыта жесткими волосками, которые защищают растение от некоторых вредителей.',
+                    'Стебель способен выдерживать огромную нагрузку, не ломаясь под тяжестью зрелой корзинки с семенами.',
+                    'Внутри стебель подсолнуха имеет губчатую сердцевину, которая запасает воду и питательные вещества.',
+                    'Стебель растет неравномерно: сторона, обращенная от солнца, растет быстрее, что и вызывает поворот бутона.',
+                    'После сбора урожая прочные стебли подсолнуха часто используются как топливо или материал для поделок.',
+                    'Стебель обладает высокой прочностью на излом благодаря особому расположению сосудистых пучков.',
+                    'У некоторых декоративных сортов подсолнуха стебель может быть ветвистым, неся несколько корзинок.',
+                    'Толщина стебля у основания может достигать 4-5 сантиметров у масличных сортов.',
+                    'Стебель эффективно транспортирует воду от корней к листьям и соцветию благодаря капиллярному эффекту.'
+                ]
+            },
+            leaf: {
+                title: '🍃 Листья',
+                image: 'leaf.png',
+                facts: [
+                    'Листья подсолнуха имеют шероховатую поверхность из-за наличия жестких коротких волосков.',
+                    'Листья расположены на стебле по спирали (филлотаксис), что предотвращает затенение нижних листьев верхними.',
+                    'Форма листьев сердцевидная или яйцевидная, с заостренной верхушкой и зубчатыми краями.',
+                    'Крупные листья работают как солнечные панели, обеспечивая фотосинтез для быстрого роста растения.',
+                    'Черешки листьев длинные и прочные, позволяя листовой пластине эффективно улавливать свет.',
+                    'Через устьица на поверхности листьев происходит транспирация – испарение воды, охлаждающее растение.',
+                    'Нижние листья подсолнуха часто отмирают и опадают по мере роста растения, чтобы не тратить ресурсы.',
+                    'Листья подсолнуха способны складываться в жаркую погоду, чтобы уменьшить площадь испарения влаги.',
+                    'Окраска листьев варьируется от светло-зеленой у молодых растений до темно-зеленой у взрослых.',
+                    'Листья играют ключевую роль в накоплении органических веществ, которые затем идут на формирование семян.'
+                ]
+            },
+            root: {
+                title: '🌱 Корневая система',
+                image: 'root.png',
+                facts: [
+                    'Подсолнух обладает мощной стержневой корневой системой, главный корень которой уходит вглубь на 2-3 метра.',
+                    'Такая глубокая корневая система позволяет растению добывать воду из глубоких слоев почвы во время засухи.',
+                    'Боковые корни широко расходятся в стороны (до 1 метра в диаметре), обеспечивая растению отличную устойчивость.',
+                    'Корни подсолнуха способны растворять и усваивать труднодоступные соединения фосфора из почвы.',
+                    'Мощная корневая система помогает подсолнуху выдерживать сильные порывы ветра без полегания.',
+                    'Корни выделяют в почву органические кислоты, которые улучшают структуру грунта вокруг растения.',
+                    'В фазе формирования корзинки корневая система подсолнуха достигает своего максимального развития.',
+                    'Подсолнух является хорошим предшественником для многих культур, так как его корни глубоко рыхлят почву.',
+                    'Молодые корешки покрыты корневыми волосками, которые многократно увеличивают площадь всасывания воды.',
+                    'Корневая система подсолнуха чувствительна к уплотнению почвы, поэтому растение предпочитает рыхлый грунт.'
+                ]
+            }
+        };
+
+        const quizQuestionPool = [
+            {
+                question: 'Как называется соцветие подсолнуха?',
+                answers: ['Колос', 'Корзинка', 'Метелка', 'Кисть'],
+                correct: 1
+            },
+            {
+                question: 'Какое свойство молодых бутонов подсолнуха заставляет их поворачиваться за солнцем?',
+                answers: ['Фототаксис', 'Гелиотропизм', 'Геотропизм', 'Никтинастия'],
+                correct: 1
+            },
+            {
+                question: 'На какую максимальную глубину может уходить главный корень подсолнуха?',
+                answers: ['До 50 см', 'До 1 метра', 'До 2-3 метров', 'До 5 метров'],
+                correct: 2
+            },
+            {
+                question: 'Как расположены листья на стебле для лучшего улавливания света?',
+                answers: ['Супротивно', 'По спирали', 'Мутовчато', 'Хаотично'],
+                correct: 1
+            },
+            {
+                question: 'Какова основная функция краевых желтых «лепестков» подсолнуха?',
+                answers: ['Фотосинтез', 'Привлечение опылителей', 'Защита от ветра', 'Накопление воды'],
+                correct: 1
+            },
+            {
+                question: 'По какому математическому принципу расположены семена в корзинке?',
+                answers: ['Числа Фибоначчи', 'Теорема Пифагора', 'Случайный порядок', 'Линейная прогрессия'],
+                correct: 0
+            },
+            {
+                question: 'Чем покрыта поверхность стебля и листьев подсолнуха?',
+                answers: ['Восковым налетом', 'Жесткими волосками', 'Колючками', 'Гладкой кожицей'],
+                correct: 1
+            },
+            {
+                question: 'Куда обычно повернуто созревшее соцветие подсолнуха?',
+                answers: ['На юг', 'На запад', 'На восток', 'Вниз'],
+                correct: 2
+            },
+            {
+                question: 'Какой тип корневой системы у подсолнуха?',
+                answers: ['Мочковатая', 'Стержневая', 'Придаточная', 'Воздушная'],
+                correct: 1
+            },
+            {
+                question: 'Сколько семечек может быть в одной корзинке подсолнуха?',
+                answers: ['До 100', 'До 500', 'До 2000 и более', 'Ровно 10'],
+                correct: 2
+            },
+            {
+                question: 'Какой витамин в большом количестве содержится в семечках подсолнуха?',
+                answers: ['Витамин C', 'Витамин A', 'Витамин E', 'Витамин B12'],
+                correct: 2
+            },
+            {
+                question: 'Сколько растительного масла содержится в семечках подсолнуха?',
+                answers: ['До 10%', 'До 30%', 'До 50-60%', 'До 90%'],
+                correct: 2
+            }
+        ];
+
+        function shuffleArray(array) {
+            const shuffled = [...array];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
+
+        function updateFlashlight(clientX, clientY) {
+            const rect = el.viewport.getBoundingClientRect();
+            const x = clientX - rect.left;
+            const y = clientY - rect.top;
+
+            const clampedX = Math.max(0, Math.min(x, rect.width));
+            const clampedY = Math.max(0, Math.min(y, rect.height));
+
+            const maskValue = `radial-gradient(circle 100px at ${clampedX}px ${clampedY}px, transparent 0%, black 100%)`;
+
+            el.bodyLayer.style.webkitMaskImage = maskValue;
+            el.bodyLayer.style.maskImage = maskValue;
+        }
+
+        el.viewport.addEventListener('mousemove', (e) => {
+            updateFlashlight(e.clientX, e.clientY);
+        });
+
+        el.viewport.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            updateFlashlight(e.touches[0].clientX, e.touches[0].clientY);
+        }, { passive: false });
+
+        el.viewport.addEventListener('touchstart', (e) => {
+            updateFlashlight(e.touches[0].clientX, e.touches[0].clientY);
+        }, { passive: true });
+
+        el.soundToggle.addEventListener('click', toggleSound);
+        el.startBtn.addEventListener('click', startGame);
+        el.closeModalBtn.addEventListener('click', closeModal);
+        el.nextFactBtn.addEventListener('click', showRandomFact);
+        el.miniQuizBtn.addEventListener('click', startMiniQuiz);
+        el.closeMiniQuizBtn.addEventListener('click', closeMiniQuiz);
+
+        document.querySelectorAll('.organ-zone').forEach(zone => {
+            zone.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openOrganModal(zone.dataset.organ);
+            });
+        });
+
+        function tryAutoplay(video) {
+            video.muted = true;
+            const promise = video.play();
+            if (promise !== undefined) {
+                promise.catch(() => {
+                    console.log('Autoplay blocked');
+                });
+            }
+        }
+
+        function toggleSound() {
+            el.bgVideo.muted = !el.bgVideo.muted;
+            el.soundIcon.textContent = el.bgVideo.muted ? '🔇' : '🔊';
+        }
+
+        function startGame() {
+            el.intro.style.display = 'none';
+            el.game.style.display = 'flex';
+
+            tryAutoplay(el.organsVideo);
+
+            el.bodyLayer.style.webkitMaskImage = 'radial-gradient(circle 0px at 50% 50%, transparent 0%, black 100%)';
+            el.bodyLayer.style.maskImage = 'radial-gradient(circle 0px at 50% 50%, transparent 0%, black 100%)';
+        }
+
+        function showRandomFact() {
+            const data = organsData[state.currentOrgan];
+            if (!data) return;
+
+            let randomIndex;
+            do {
+                randomIndex = Math.floor(Math.random() * data.facts.length);
+            } while (randomIndex === state.lastFactIndex && data.facts.length > 1);
+            
+            state.lastFactIndex = randomIndex;
+            
+            el.modalFact.style.animation = 'none';
+            setTimeout(() => {
+                el.modalFact.textContent = data.facts[randomIndex];
+                el.modalFact.style.animation = 'fadeIn 0.3s ease';
+            }, 10);
+        }
+
+        function openOrganModal(organKey) {
+            const data = organsData[organKey];
+            if (!data) return;
+
+            state.currentOrgan = organKey;
+            state.lastFactIndex = -1;
+
+            el.modalTitle.textContent = data.title;
+            el.modalImage.src = data.image;
+
+            showRandomFact();
+            el.organModal.classList.add('active');
+
+            if (!state.discovered.has(organKey)) {
+                state.discovered.add(organKey);
+                updateProgress();
+            }
+        }
+
+        function closeModal() {
+            el.organModal.classList.remove('active');
+        }
+
+        function startMiniQuiz() {
+            state.miniQuizQuestion = 0;
+            state.miniQuizScore = 0;
+            state.currentMiniQuizQuestions = shuffleArray(quizQuestionPool).slice(0, 4);
+            el.miniQuizOverlay.classList.add('active');
+            showMiniQuizQuestion();
+        }
+
+        function showMiniQuizQuestion() {
+            if (state.miniQuizQuestion >= state.currentMiniQuizQuestions.length) {
+                showMiniQuizResult();
+                return;
+            }
+
+            const q = state.currentMiniQuizQuestions[state.miniQuizQuestion];
+            el.miniQuizProgress.textContent = `Вопрос ${state.miniQuizQuestion + 1} из ${state.currentMiniQuizQuestions.length}`;
+
+            let html = `<div class="mini-quiz-question">${q.question}</div><div class="mini-quiz-answers">`;
+            q.answers.forEach((answer, i) => {
+                html += `<button class="mini-quiz-answer" data-index="${i}">${answer}</button>`;
+            });
+            html += '</div>';
+            el.miniQuizContainer.innerHTML = html;
+
+            el.miniQuizContainer.querySelectorAll('.mini-quiz-answer').forEach(btn => {
+                btn.addEventListener('click', handleMiniQuizAnswer);
+            });
+        }
+
+        function handleMiniQuizAnswer(e) {
+            const idx = parseInt(e.target.dataset.index);
+            const q = state.currentMiniQuizQuestions[state.miniQuizQuestion];
+            const buttons = el.miniQuizContainer.querySelectorAll('.mini-quiz-answer');
+
+            buttons.forEach(btn => btn.classList.add('disabled'));
+
+            if (idx === q.correct) {
+                e.target.classList.add('correct');
+                state.miniQuizScore++;
+            } else {
+                e.target.classList.add('wrong');
+                buttons[q.correct].classList.add('correct');
+            }
+
+            setTimeout(() => {
+                state.miniQuizQuestion++;
+                showMiniQuizQuestion();
+            }, 2000);
+        }
+
+        function showMiniQuizResult() {
+            let html = `<div style="text-align: center; padding: 1rem;">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">${state.miniQuizScore === state.currentMiniQuizQuestions.length ? '🌻' : state.miniQuizScore >= 2 ? '🌱' : '🍂'}</div>
+                <div style="font-size: 1.5rem; color: var(--neon-cyan); margin-bottom: 0.5rem;">Результат</div>
+                <div style="font-size: 2rem; font-weight: bold; margin-bottom: 1rem;">${state.miniQuizScore}/${state.currentMiniQuizQuestions.length}</div>
+                <div style="color: var(--text-secondary);">
+                    ${state.miniQuizScore === state.currentMiniQuizQuestions.length ? 'Отлично! Вы настоящий ботаник!' : 
+                      state.miniQuizScore >= 2 ? 'Хороший результат! Вы много знаете о растениях.' : 'Продолжайте изучать ботанику!'}
+                </div>
+            </div>`;
+            el.miniQuizContainer.innerHTML = html;
+            el.miniQuizProgress.textContent = 'Завершено';
+        }
+
+        function closeMiniQuiz() {
+            el.miniQuizOverlay.classList.remove('active');
+        }
+
+        function startFullQuiz() {
+            el.game.style.display = 'none';
+            el.quiz.style.display = 'flex';
+            state.currentQuestion = 0;
+            state.score = 0;
+            state.currentFullQuizQuestions = shuffleArray(quizQuestionPool).slice(0, 4);
+            showFullQuizQuestion();
+        }
+
+        function showFullQuizQuestion() {
+            if (state.currentQuestion >= state.currentFullQuizQuestions.length) {
+                showFullQuizResult();
+                return;
+            }
+
+            const q = state.currentFullQuizQuestions[state.currentQuestion];
+            el.quizProgress.textContent = `Вопрос ${state.currentQuestion + 1} из ${state.currentFullQuizQuestions.length}`;
+
+            let html = `<div class="question-card"><div class="question-text">${q.question}</div><div class="answers">`;
+            q.answers.forEach((answer, i) => {
+                html += `<button class="answer-btn" data-index="${i}">${answer}</button>`;
+            });
+            html += '</div></div>';
+            el.quizContainer.innerHTML = html;
+
+            el.quizContainer.querySelectorAll('.answer-btn').forEach(btn => {
+                btn.addEventListener('click', handleFullQuizAnswer);
+            });
+        }
+
+        function handleFullQuizAnswer(e) {
+            const idx = parseInt(e.target.dataset.index);
+            const q = state.currentFullQuizQuestions[state.currentQuestion];
+            const buttons = el.quizContainer.querySelectorAll('.answer-btn');
+
+            buttons.forEach(btn => btn.classList.add('disabled'));
+
+            if (idx === q.correct) {
+                e.target.classList.add('correct');
+                state.score++;
+            } else {
+                e.target.classList.add('wrong');
+                buttons[q.correct].classList.add('correct');
+            }
+
+            setTimeout(() => {
+                state.currentQuestion++;
+                showFullQuizQuestion();
+            }, 1200);
+        }
+
+        function showFullQuizResult() {
+            el.quiz.style.display = 'none';
+            el.result.style.display = 'flex';
+
+            el.resultScore.textContent = `${state.score}/${state.currentFullQuizQuestions.length}`;
+
+            if (state.score === state.currentFullQuizQuestions.length) {
+                el.resultText.textContent = 'Великолепно! Вы настоящий эксперт в ботанике! 🌻';
+            } else if (state.score >= state.currentFullQuizQuestions.length / 2) {
+                el.resultText.textContent = 'Хороший результат! Продолжайте изучать растения! ';
+            } else {
+                el.resultText.textContent = 'Неплохо! Попробуйте ещё раз, чтобы узнать больше о подсолнухе! ';
+            }
+        }
+
+        function updateProgress() {
+            const pct = (state.discovered.size / state.totalOrgans) * 100;
+            el.progressBar.style.width = pct + '%';
+        }
+
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', (e) => {
+            const now = Date.now();
+            if (now - lastTouchEnd <= 300) e.preventDefault();
+            lastTouchEnd = now;
+        }, false);
+
+        window.addEventListener('load', () => {
+            tryAutoplay(el.bgVideo);
+        });
+    </script>
+</body>
+</html>
